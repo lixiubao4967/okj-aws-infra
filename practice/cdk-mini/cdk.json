@@ -1,0 +1,13 @@
+{
+  "app": "go mod download && go run ./cmd/main.go",
+  "watch": {
+    "include": ["**"],
+    "exclude": ["README.md", "cdk*.json", "go.mod", "go.sum", "**/*_test.go"]
+  },
+  "context": {
+    "env": "personal",
+    "@aws-cdk/aws-s3:publicAccessBlockedByDefault": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "aws-cdk:enableDiffNoFail": true
+  }
+}

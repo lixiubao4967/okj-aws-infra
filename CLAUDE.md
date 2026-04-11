@@ -41,3 +41,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 EC2 实例名按可用区区分，格式为 `<服务名>-<az><序号>`，如：
 - `app-c01` — c 区第 1 台
 - `app-a01` — a 区第 1 台（从 c 区克隆时需相应修改名称）
+
+---
+
+## CDK 知识库（memory-bank）
+
+本仓库包含对 `okj-cdk-exchange` 的深度分析结果，**遇到 CDK 相关问题先读 memory-bank，不要重新分析源码**：
+
+| 文件 | 内容 |
+|------|------|
+| `memory-bank/cdk-architecture.md` | 4 层架构（Construct/Stack/Props/main.go）、规范、创建顺序 |
+| `memory-bank/cdk-services-map.md` | 117 个服务目录、AWS 资源 → Construct 对照表 |
+| `memory-bank/cdk-pitfalls.md` | 已知陷阱、设计决策、常用命令 |
+| `memory-bank/progress.md` | 当前进度和待完成事项 |
+
+**okj-cdk-exchange 源码位置**：`/Users/xiubao.li/Documents/Gitlab/okj-cdk-exchange`（只在 memory-bank 信息不足时才去读源码）
+
+## CDK 练习项目
+
+`practice/cdk-mini/` — 复刻 okj-cdk-exchange 4 层架构的个人 AWS 部署练习，部署资源：S3 + SNS + DynamoDB。
+
+部署指南：`practice/cdk-mini/docs/deploy.md`
