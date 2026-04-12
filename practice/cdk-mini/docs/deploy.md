@@ -162,8 +162,10 @@ cdk destroy --all
 手动删除 DynamoDB 表：
 
 ```bash
-aws dynamodb delete-table --table-name cdk-mini-tasks
+aws dynamodb delete-table --table-name cdk-mini-tasks --profile lpbot
 ```
+
+> ⚠️ **注意**：`cdk destroy --all` 不会删除 DynamoDB 表，必须手动执行上面的命令，否则表会一直保留（不产生费用，但资源残留）。
 
 ---
 
