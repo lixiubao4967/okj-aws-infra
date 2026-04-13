@@ -9,6 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 文档结构
 
 - `docs/<服务分类>/<服务名>/` — 操作文档，按 AWS 服务类型组织
+  - `docs/compute/ec2/` — EC2 操作（克隆实例等）
+  - `docs/deployment/` — 部署相关（ArgoCD / CDK / CDK8s / ops-kit）
+  - `docs/storage/fsx/` — FSx 文件服务器迁移方案（Samba+LDAP → FSx File Gateway）
 - `scripts/aws-cli/` — 可直接执行的 AWS CLI Shell 脚本
 
 ## 文档规范
