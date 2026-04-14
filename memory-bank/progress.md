@@ -21,6 +21,27 @@
 - [ ] 验证 3 个资源创建成功
 - [ ] 执行清理：`cdk destroy --all` + 手动删 DynamoDB 表
 
+## cdk-mini 进阶练习（按顺序）
+
+> 已理解 4 层架构，以下任务逐步覆盖真实 okj-cdk-exchange 的核心模式
+
+- [ ] **任务 3：多环境隔离**（可独立先做）
+  - 新增 `config/dev.yaml`、`config/prod.yaml`
+  - dev：AutoCleanup=true；prod：AutoCleanup=false + DeletionProtection
+  - 验证：`cdk deploy --context env=dev` vs `env=prod`
+
+- [ ] **任务 1：IAM 跨 Stack 引用**（其他任务的前置）
+  - 新建 IAM Policy，用 `S3Stack.PracticeBucket.GetBucketArn()` 跨 Stack 取 ARN
+  - 真正用起来 `internal/props/props.go` 的 MiniStackProps 总线
+
+- [ ] **任务 4：CfnOutput 输出**（理解 Props 传值后再对比）
+  - 在 Stack 中用 `CfnOutput` 导出 ARN，用 `Fn.importValue()` 在其他 Stack 引用
+  - 对比与 Props 总线传值的区别：编译期引用 vs CloudFormation 运行期引用
+
+- [ ] **任务 2：DynamoDB + Lambda 联动**（依赖任务 1 的 IAM 模式）
+  - 新建 Lambda Construct + LambdaStack，读写 DynamoDB
+  - 跨 Stack IAM 授权：`DynamoDBStack.TasksTable.GetTableArn()`
+
 ## 下一步可探索
 
 - [ ] 在 cdk-mini 中添加第 4 个资源（如 SQS Queue），完整走一遍"添加新资源"流程
