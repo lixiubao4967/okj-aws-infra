@@ -19,6 +19,11 @@ func (b BaseServiceSpec) Replicas() *int { return nil }
 // Override to set CPU/memory requests and limits.
 func (b BaseServiceSpec) Resources() *ResourceRequirements { return nil }
 
+// ReadOnlyRootFilesystem returns nil — "defer to cdk8s-plus default (true)".
+// Override to return ptr.To(false) for services that need a writable root filesystem
+// (e.g. nginx writes /var/cache/nginx; redis writes /data).
+func (b BaseServiceSpec) ReadOnlyRootFilesystem() *bool { return nil }
+
 // BaseStatelessAppSpec embeds BaseServiceSpec and provides full StatelessAppSpec defaults.
 // Embed this in service chart structs and override only what deviates from defaults.
 type BaseStatelessAppSpec struct {

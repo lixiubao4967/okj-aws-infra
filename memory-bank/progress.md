@@ -52,11 +52,17 @@
   - 完成 NginxChart 服务，`go run cmd/main.go` 生成 YAML 验证通过
   - 输出：`mini-charts/nginx/nginx.yaml`
 
-### cdk8s-mini 待续任务
+- [x] **任务 2**：NginxChart 实现 `Resources()` 覆盖 cdk8s-plus 默认资源限制（2026-04-17）
+- [x] **任务 3**：添加 `services/cache/redis.go`，完整走一遍"新增服务"流程（2026-04-17）
+- [x] **任务 4**：实现 StatefulApp 模式（StatefulSet + Headless Service + volumeClaimTemplates）（2026-04-17）
+- [x] **修复**：nginx/redis 的 `readOnlyRootFilesystem: false`（2026-04-17）
 
-- [ ] **任务 2**：在 NginxChart 中实现 `Resources()` 覆盖 cdk8s-plus 默认资源限制
-- [ ] **任务 3**：添加第二个服务 `services/cache/redis.go`，走一遍完整的"新增服务"流程
-- [ ] **任务 4**：理解 StatefulApp 模式（对照 aircraft 层的 StatefulServiceConstruct）
+### cdk8s-mini 已知坑
+
+- cdk8s Go JSII binding v2.70：K8s Quantity 类型在 JsonPatch 上下文中序列化为 null
+  - 影响：StatefulSet volumeClaimTemplates 的 `storage` 字段为 null
+  - 绕过：生成 YAML 后手动改 `storage: null` → `storage: 1Gi`
+  - 根本解：改用 `k8s.NewKubeStatefulSet`（完整 typed API）
 
 ## 下一步可探索
 

@@ -78,4 +78,11 @@ EC2 实例名按可用区区分，格式为 `<服务名>-<az><序号>`，如：
 
 ## CDK8s 练习项目
 
-`practice/cdk8s-mini/` — 复刻 okj-cdk8s-exchange 4 层架构的个人 K8s manifests 练习，生成资源：Nginx Deployment + Service + ConfigMap。
+`practice/cdk8s-mini/` — 复刻 okj-cdk8s-exchange 4 层架构的个人 K8s manifests 练习，生成资源：
+- **StatelessApp**：Nginx Deployment + ClusterIP Service（services/web/）
+- **StatelessApp**：Redis Deployment + ClusterIP Service（services/cache/）
+- **StatefulApp**：Redis StatefulSet + Headless Service + volumeClaimTemplates（services/cache/）
+
+架构层次：`internal/spec/` → `services/` → `internal/constructs/` → `cmd/main.go`
+
+已知坑：cdk8s Go JSII binding v2.70 的 K8s Quantity 序列化 bug 导致 `storage: null`，部署前需手动改为 `storage: 1Gi`。

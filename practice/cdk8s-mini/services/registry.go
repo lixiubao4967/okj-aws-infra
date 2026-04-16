@@ -4,6 +4,7 @@
 package services
 
 import (
+	"cdk8s-mini/services/cache"
 	"cdk8s-mini/services/web"
 
 	"github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2"
@@ -23,5 +24,7 @@ type ServiceChart interface {
 func All() []ServiceChart {
 	return []ServiceChart{
 		web.NewNginxChart(),
+		cache.NewRedisChart(),
+		cache.NewRedisStatefulChart(),
 	}
 }

@@ -28,6 +28,9 @@ type StatelessAppConstructProps struct {
 	Port int
 	// Resources sets CPU/memory requests and limits. nil → no resource constraints.
 	Resources *spec.ResourceRequirements
+	// ReadOnlyRootFilesystem overrides the cdk8s-plus default (true).
+	// Set to ptr.To(false) for services that need to write outside mounted volumes.
+	ReadOnlyRootFilesystem *bool
 }
 
 // StatelessAppConstruct generates a Kubernetes Deployment and a matching ClusterIP Service.
@@ -57,6 +60,14 @@ func NewStatelessAppConstruct(scope constructs.Construct, id string, props *Stat
 		"app.kubernetes.io/managed-by": jsii.String("cdk8s"),
 	}
 
+	// Override readOnlyRootFilesystem when the service needs a writable root FS.
+	var secCtx *cdk8splus.ContainerSecurityContextProps
+	if props.ReadOnlyRootFilesystem != nil {
+		secCtx = &cdk8splus.ContainerSecurityContextProps{
+			ReadOnlyRootFilesystem: jsii.Bool(*props.ReadOnlyRootFilesystem),
+		}
+	}
+
 	// ── Deployment ──────────────────────────────────────────────────────────────
 	deployment := cdk8splus.NewDeployment(c.Construct, jsii.String("deployment"), &cdk8splus.DeploymentProps{
 		Metadata: &cdk8s.ApiObjectMetadata{
@@ -72,8 +83,9 @@ func NewStatelessAppConstruct(scope constructs.Construct, id string, props *Stat
 			{
 				Name:      jsii.String(props.Name),
 				Image:     jsii.String(props.Image),
-				Ports:     &[]*cdk8splus.ContainerPort{{Number: jsii.Number(float64(props.Port))}},
-				Resources: buildContainerResources(props.Resources),
+				Ports:           &[]*cdk8splus.ContainerPort{{Number: jsii.Number(float64(props.Port))}},
+				Resources:       buildContainerResources(props.Resources),
+				SecurityContext: secCtx,
 			},
 		},
 	})
