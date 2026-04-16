@@ -65,3 +65,17 @@ EC2 实例名按可用区区分，格式为 `<服务名>-<az><序号>`，如：
 `practice/cdk-mini/` — 复刻 okj-cdk-exchange 4 层架构的个人 AWS 部署练习，部署资源：S3 + SNS + DynamoDB。
 
 部署指南：`practice/cdk-mini/docs/deploy.md`
+
+## CDK8s 知识库（memory-bank）
+
+本仓库包含对 `okj-cdk8s-exchange` 的深度分析结果，**遇到 CDK8s 相关问题先读 memory-bank**：
+
+| 文件 | 内容 |
+|------|------|
+| `memory-bank/cdk8s-architecture.md` | 4 层架构（Spec/Builder/Construct/App）、5 个服务分层、编码约定 |
+
+**okj-cdk8s-exchange 源码位置**：`/Users/xiubao.li/Documents/Gitlab/okj-cdk8s-exchange`
+
+## CDK8s 练习项目
+
+`practice/cdk8s-mini/` — 复刻 okj-cdk8s-exchange 4 层架构的个人 K8s manifests 练习，生成资源：Nginx Deployment + Service + ConfigMap。

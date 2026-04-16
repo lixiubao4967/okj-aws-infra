@@ -42,6 +42,22 @@
   - 新建 Lambda Construct + LambdaStack，读写 DynamoDB
   - 跨 Stack IAM 授权：`DynamoDBStack.TasksTable.GetTableArn()`
 
+## CDK8s 练习（practice/cdk8s-mini）
+
+- [x] 分析 okj-cdk8s-exchange 架构，整理文档（2026-04-16）
+  - 文档：`memory-bank/cdk8s-architecture.md`
+- [x] 搭建 `practice/cdk8s-mini` 骨架（2026-04-16）
+  - 复刻 okj-cdk8s-exchange 的 4 层架构：Spec / Construct / Registry / main.go
+  - 实现 StatelessAppConstruct（Deployment + Service + stable selector patch）
+  - 完成 NginxChart 服务，`go run cmd/main.go` 生成 YAML 验证通过
+  - 输出：`mini-charts/nginx/nginx.yaml`
+
+### cdk8s-mini 待续任务
+
+- [ ] **任务 2**：在 NginxChart 中实现 `Resources()` 覆盖 cdk8s-plus 默认资源限制
+- [ ] **任务 3**：添加第二个服务 `services/cache/redis.go`，走一遍完整的"新增服务"流程
+- [ ] **任务 4**：理解 StatefulApp 模式（对照 aircraft 层的 StatefulServiceConstruct）
+
 ## 下一步可探索
 
 - [ ] 在 cdk-mini 中添加第 4 个资源（如 SQS Queue），完整走一遍"添加新资源"流程
