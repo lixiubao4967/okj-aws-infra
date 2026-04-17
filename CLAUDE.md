@@ -73,6 +73,7 @@ EC2 实例名按可用区区分，格式为 `<服务名>-<az><序号>`，如：
 | 文件 | 内容 |
 |------|------|
 | `memory-bank/cdk8s-architecture.md` | 4 层架构（Spec/Builder/Construct/App）、5 个服务分层、编码约定 |
+| `memory-bank/argo-architecture.md` | okj-argo-manifests：ApplicationSet + Kustomize GitOps 结构、base/overlays/argocd 分层、与 cdk8s 的关系 |
 
 **okj-cdk8s-exchange 源码位置**：`/Users/xiubao.li/Documents/Gitlab/okj-cdk8s-exchange`
 

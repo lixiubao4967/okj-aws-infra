@@ -64,6 +64,11 @@
   - 绕过：生成 YAML 后手动改 `storage: null` → `storage: 1Gi`
   - 根本解：改用 `k8s.NewKubeStatefulSet`（完整 typed API）
 
+- [x] 分析 `okj-argo-manifests` 架构（2026-04-17）
+  - 文档：`memory-bank/argo-architecture.md`
+  - 模式：ApplicationSet + Git 目录生成器 + Kustomize base/overlays
+  - cdk8s 生成 base/ → overlays/ 环境特化 → ArgoCD 自动同步到 EKS
+
 ## 下一步可探索
 
 - [ ] 在 cdk-mini 中添加第 4 个资源（如 SQS Queue），完整走一遍"添加新资源"流程
