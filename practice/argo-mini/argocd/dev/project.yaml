@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: argo-mini-dev
+  namespace: argocd
+  # finalizer 防止误删 Project（有 Application 引用时阻止删除）
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: argo-mini practice project - dev environment
+
+  # 允许从哪个 Git 仓库同步
+  sourceRepos:
+    - https://github.com/lixiubao4967/okj-aws-infra.git
+
+  # 允许部署到哪些集群和命名空间
+  destinations:
+    - server: https://kubernetes.default.svc  # 本集群
+      namespace: default
+
+  # 允许的 K8s 资源类型
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  namespaceResourceWhitelist:
+    - group: "apps"
+      kind: Deployment
+    - group: ""
+      kind: Service

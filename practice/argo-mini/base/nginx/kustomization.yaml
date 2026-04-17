@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# base 层由 cdk8s synth 生成，禁止手动编辑
+# 业务变更通过 cdk8s-mini 修改后重新生成
+
+resources:
+  - nginx.yaml

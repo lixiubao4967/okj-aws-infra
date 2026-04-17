@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: argo-mini-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: argo-mini practice project - prod environment
+
+  sourceRepos:
+    - https://github.com/lixiubao4967/okj-aws-infra.git
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: default
+
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  namespaceResourceWhitelist:
+    - group: "apps"
+      kind: Deployment
+    - group: ""
+      kind: Service

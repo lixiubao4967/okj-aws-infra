@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: argo-mini-dev
+  namespace: argocd
+spec:
+  # git directory 生成器：扫描 overlays/dev/ 下所有子目录
+  # 新增服务时只需在 overlays/dev/ 创建目录，无需修改本文件
+  generators:
+    - git:
+        repoURL: https://github.com/lixiubao4967/okj-aws-infra.git
+        revision: develop  # dev 环境跟踪 develop 分支
+        directories:
+          - path: practice/argo-mini/overlays/dev/*
+
+  template:
+    metadata:
+      # 命名规则：argo-mini-dev-{目录名}
+      # 对应 okj-argo-manifests 的 okj-test-{appName} 模式
+      name: argo-mini-dev-{{path.basename}}
+    spec:
+      project: argo-mini-dev
+
+      source:
+        repoURL: https://github.com/lixiubao4967/okj-aws-infra.git
+        targetRevision: develop
+        path: practice/argo-mini/overlays/dev/{{path.basename}}
+
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: default
+
+      syncPolicy:
+        automated:
+          prune: true      # 删除 Git 中已移除的资源
+          selfHeal: true   # 自动修复集群漂移（有人手动改了 kubectl 会被回滚）
+        syncOptions:
+          - CreateNamespace=true
