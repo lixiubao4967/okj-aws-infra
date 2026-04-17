@@ -75,6 +75,17 @@
   - ApplicationSet + AppProject YAML，含 git-directory 生成器
   - 文档：`practice/argo-mini/README.md`（含 4 个本地练习任务）
 
+## 本地 K8s 环境（k3s）
+
+- [x] 在 Mac M2 上搭建本地 K8s 集群（2026-04-17）
+  - 方案：Multipass（Ubuntu 22.04 VM）+ k3s
+  - VM：`multipass launch -n k3s-server -c 2 -m 2G -d 10G 22.04`
+  - k3s 安装：`curl -sfL https://get.k3s.io | sh -`
+  - kubeconfig 手动合并到 `~/.kube/config`，context 名 `k3s`
+  - 坑：cluster name 必须填写，空字符串会导致 `cannot locate cluster k3s`
+  - 验证：`kubectl get nodes` → `k3s-server Ready`
+- [ ] 将 cdk8s-mini 部署到 k3s
+
 ## 下一步可探索
 
 - [ ] 在 cdk-mini 中添加第 4 个资源（如 SQS Queue），完整走一遍"添加新资源"流程
