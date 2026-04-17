@@ -68,6 +68,12 @@
   - 文档：`memory-bank/argo-architecture.md`
   - 模式：ApplicationSet + Git 目录生成器 + Kustomize base/overlays
   - cdk8s 生成 base/ → overlays/ 环境特化 → ArgoCD 自动同步到 EKS
+- [x] 搭建 `practice/argo-mini` 练习项目（2026-04-17）
+  - 复刻 okj-argo-manifests 三层 GitOps 结构：base / overlays / argocd
+  - 服务：nginx + redis（复用 cdk8s-mini 生成的 YAML）
+  - dev/prod 两套 overlay（副本数、资源限制差异化）
+  - ApplicationSet + AppProject YAML，含 git-directory 生成器
+  - 文档：`practice/argo-mini/README.md`（含 4 个本地练习任务）
 
 ## 下一步可探索
 

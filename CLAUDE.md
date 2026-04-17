@@ -87,3 +87,17 @@ EC2 实例名按可用区区分，格式为 `<服务名>-<az><序号>`，如：
 架构层次：`internal/spec/` → `services/` → `internal/constructs/` → `cmd/main.go`
 
 已知坑：cdk8s Go JSII binding v2.70 的 K8s Quantity 序列化 bug 导致 `storage: null`，部署前需手动改为 `storage: 1Gi`。
+
+## ArgoCD GitOps 练习项目
+
+`practice/argo-mini/` — 复刻 okj-argo-manifests 三层 GitOps 结构的练习，服务：nginx + redis。
+
+```
+base/           ← cdk8s synth 输出物（只读）
+overlays/       ← dev/prod 环境特化（Kustomize patches）
+argocd/         ← ApplicationSet + AppProject（apply once）
+```
+
+本地验证：`kubectl kustomize practice/argo-mini/overlays/dev/nginx`
+
+练习指南：`practice/argo-mini/README.md`
