@@ -86,7 +86,11 @@ EC2 实例名按可用区区分，格式为 `<服务名>-<az><序号>`，如：
 
 架构层次：`internal/spec/` → `services/` → `internal/constructs/` → `cmd/main.go`
 
-已知坑：cdk8s Go JSII binding v2.70 的 K8s Quantity 序列化 bug 导致 `storage: null`，部署前需手动改为 `storage: 1Gi`。
+已知坑（k3s 部署）：
+- cdk8s Go JSII binding v2.70：K8s Quantity 序列化 bug → `storage: null`，部署前手动改为 `storage: 1Gi`
+- nginx 官方镜像以 root 启动，`runAsNonRoot: true` 会报错 → 换 `nginxinc/nginx-unprivileged:1.27-alpine`（端口 8080）
+- redis 官方镜像以 root 启动 → container securityContext 加 `runAsUser: 999`
+- StatefulSet 更新后 pod 不自动重建 → 手动 `kubectl delete pod <name>`
 
 ## ArgoCD GitOps 练习项目
 

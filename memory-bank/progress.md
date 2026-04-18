@@ -57,6 +57,16 @@
 - [x] **任务 4**：实现 StatefulApp 模式（StatefulSet + Headless Service + volumeClaimTemplates）（2026-04-17）
 - [x] **修复**：nginx/redis 的 `readOnlyRootFilesystem: false`（2026-04-17）
 
+### k3s 部署已知坑（2026-04-19）
+
+- `runAsNonRoot: true` + 官方 nginx 镜像：nginx master 进程以 root 启动，K8s 拒绝
+  - 修复：换用 `nginxinc/nginx-unprivileged:1.27-alpine`，端口改为 8080
+- `runAsNonRoot: true` + 官方 redis 镜像：redis 默认以 root 运行
+  - 修复：container securityContext 加 `runAsUser: 999`（镜像内置 redis 用户）
+- StatefulSet 更新后 pod 不自动重建
+  - 原因：StatefulSet 保证 pod 身份稳定，不触发滚动更新
+  - 修复：手动 `kubectl delete pod <name>` 触发重建
+
 ### cdk8s-mini 已知坑
 
 - cdk8s Go JSII binding v2.70：K8s Quantity 类型在 JsonPatch 上下文中序列化为 null
@@ -84,7 +94,11 @@
   - kubeconfig 手动合并到 `~/.kube/config`，context 名 `k3s`
   - 坑：cluster name 必须填写，空字符串会导致 `cannot locate cluster k3s`
   - 验证：`kubectl get nodes` → `k3s-server Ready`
-- [ ] 将 cdk8s-mini 部署到 k3s
+- [x] 将 cdk8s-mini 部署到 k3s（2026-04-19）
+  - nginx（Deployment）、redis（Deployment）、redis-stateful（StatefulSet）三服务全部 Running
+  - PVC `data-redis-stateful-0` 自动绑定（local-path StorageClass，1Gi）
+  - 修复坑见下方"k3s 部署已知坑"
+  - 验证：`curl localhost:8080` → nginx 首页；`redis-cli ping` → PONG
 
 ## 下一步可探索
 
