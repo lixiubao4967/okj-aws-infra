@@ -88,7 +88,9 @@
   - ArgoCD 安装（stable）、AppProject + ApplicationSet apply
   - argo-mini-dev-nginx / argo-mini-dev-redis 自动发现并同步
   - selfHeal 验证：手动 scale 副本数被自动回滚
+  - 任务 3 完成：模拟 deployer 更新镜像 tag（1.27→1.28-alpine），ArgoCD 自动滚动更新
   - 修复坑：base YAML 未同步 cdk8s-mini 镜像修复（nginx-unprivileged + redis runAsUser）
+  - 修复坑：application-controller 重启后轮询停止，需设 timeout.reconciliation + hard refresh
   - 详细坑记录见 `practice/argo-mini/README.md`
 
 ## 本地 K8s 环境（k3s）

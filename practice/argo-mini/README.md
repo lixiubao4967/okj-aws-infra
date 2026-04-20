@@ -104,13 +104,16 @@ kubectl apply -f practice/argo-mini/argocd/dev/applicationset.yaml
 kubectl get applications -n argocd
 ```
 
-### 手动触发立即同步（默认 3 分钟轮询）
+### 手动触发立即同步
 
 ```bash
+# normal refresh：用 git 缓存对比
 kubectl annotate application argo-mini-dev-nginx \
-  -n argocd argocd.argoproj.io/refresh=normal
-kubectl annotate application argo-mini-dev-redis \
-  -n argocd argocd.argoproj.io/refresh=normal
+  -n argocd argocd.argoproj.io/refresh=normal --overwrite
+
+# hard refresh：跳过 git 缓存，强制重新拉 GitHub（推送后未检测到变化时用）
+kubectl annotate application argo-mini-dev-nginx \
+  -n argocd argocd.argoproj.io/refresh=hard --overwrite
 ```
 
 ## 已知坑（k3s 部署，2026-04-20）
@@ -123,6 +126,7 @@ kubectl annotate application argo-mini-dev-redis \
 | nginx pod `CreateContainerConfigError: runAsNonRoot` | base/nginx.yaml 镜像未同步 cdk8s-mini 修复 | 换 `nginxinc/nginx-unprivileged:1.27-alpine`，端口 80→8080 |
 | redis pod `CreateContainerConfigError: runAsNonRoot` | base/redis.yaml 缺少 `runAsUser: 999` | container securityContext 加 `runAsUser: 999` |
 | selfHeal 无 Event 记录 | ArgoCD 静默修复漂移，不写 Event | 用 `kubectl get deployment nginx -o jsonpath='{.spec.replicas}'` 验证 |
+| push 后长时间未自动同步 | application-controller 重启后轮询队列未恢复，且 git 缓存未失效 | 1. 设置 `timeout.reconciliation: 180s` 并重启 controller；2. 用 `refresh=hard` 跳过缓存 |
 
 ## 练习任务
 
