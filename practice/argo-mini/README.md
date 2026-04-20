@@ -64,9 +64,34 @@ diff \
   <(kubectl kustomize practice/argo-mini/overlays/prod/nginx)
 ```
 
-## 部署到真实集群（可选）
+## 部署到真实集群（k3s 已验证，2026-04-20）
 
 前提：已有可访问的 K8s 集群 + ArgoCD 已安装
+
+### 安装 ArgoCD
+
+```bash
+kubectl create namespace argocd
+
+# 首次安装必须用 --server-side，避免 CRD annotation 超限（262144 字节）
+kubectl apply -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml \
+  --server-side --force-conflicts
+
+# 等待所有 pod 就绪
+kubectl get pods -n argocd -w
+```
+
+### 获取初始密码
+
+```bash
+# 用户名固定为 admin
+kubectl get secret argocd-initial-admin-secret \
+  -n argocd \
+  -o jsonpath='{.data.password}' | base64 -d
+```
+
+### apply argo-mini 引导层
 
 ```bash
 # 1. 创建 AppProject（每个环境执行一次）
@@ -76,8 +101,28 @@ kubectl apply -f practice/argo-mini/argocd/dev/project.yaml
 kubectl apply -f practice/argo-mini/argocd/dev/applicationset.yaml
 
 # 3. 查看自动创建的 Applications
-kubectl get applications -n argocd | grep argo-mini-dev
+kubectl get applications -n argocd
 ```
+
+### 手动触发立即同步（默认 3 分钟轮询）
+
+```bash
+kubectl annotate application argo-mini-dev-nginx \
+  -n argocd argocd.argoproj.io/refresh=normal
+kubectl annotate application argo-mini-dev-redis \
+  -n argocd argocd.argoproj.io/refresh=normal
+```
+
+## 已知坑（k3s 部署，2026-04-20）
+
+| 问题 | 原因 | 解法 |
+|------|------|------|
+| `kubectl apply` 报 CRD annotation too long | ArgoCD ApplicationSet CRD 超过 262144 字节限制 | 改用 `--server-side --force-conflicts` |
+| ApplicationSet 报 `no matches for kind` | 上一步 CRD 没装成功 | 重新 `--server-side` apply |
+| `authentication required: Repository not found` | GitHub 私有仓库，ArgoCD 无法拉取 | 仓库改为 public，或配置 PAT Secret |
+| nginx pod `CreateContainerConfigError: runAsNonRoot` | base/nginx.yaml 镜像未同步 cdk8s-mini 修复 | 换 `nginxinc/nginx-unprivileged:1.27-alpine`，端口 80→8080 |
+| redis pod `CreateContainerConfigError: runAsNonRoot` | base/redis.yaml 缺少 `runAsUser: 999` | container securityContext 加 `runAsUser: 999` |
+| selfHeal 无 Event 记录 | ArgoCD 静默修复漂移，不写 Event | 用 `kubectl get deployment nginx -o jsonpath='{.spec.replicas}'` 验证 |
 
 ## 练习任务
 

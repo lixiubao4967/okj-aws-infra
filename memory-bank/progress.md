@@ -84,6 +84,12 @@
   - dev/prod 两套 overlay（副本数、资源限制差异化）
   - ApplicationSet + AppProject YAML，含 git-directory 生成器
   - 文档：`practice/argo-mini/README.md`（含 4 个本地练习任务）
+- [x] 将 argo-mini 部署到 k3s（2026-04-20）
+  - ArgoCD 安装（stable）、AppProject + ApplicationSet apply
+  - argo-mini-dev-nginx / argo-mini-dev-redis 自动发现并同步
+  - selfHeal 验证：手动 scale 副本数被自动回滚
+  - 修复坑：base YAML 未同步 cdk8s-mini 镜像修复（nginx-unprivileged + redis runAsUser）
+  - 详细坑记录见 `practice/argo-mini/README.md`
 
 ## 本地 K8s 环境（k3s）
 
