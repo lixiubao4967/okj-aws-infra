@@ -43,6 +43,7 @@ spec:
             privileged: false
             readOnlyRootFilesystem: false
             runAsNonRoot: true
+            runAsUser: 999
       dnsPolicy: ClusterFirst
       hostNetwork: false
       restartPolicy: Always

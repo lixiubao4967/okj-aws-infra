@@ -26,11 +26,11 @@ spec:
     spec:
       automountServiceAccountToken: false
       containers:
-        - image: nginx:1.27-alpine
+        - image: nginxinc/nginx-unprivileged:1.27-alpine
           imagePullPolicy: Always
           name: nginx
           ports:
-            - containerPort: 80
+            - containerPort: 8080
           resources:
             limits:
               cpu: "0.2"
@@ -64,8 +64,8 @@ metadata:
 spec:
   externalIPs: []
   ports:
-    - port: 80
-      targetPort: 80
+    - port: 8080
+      targetPort: 8080
   selector:
     app.kubernetes.io/name: nginx
   type: ClusterIP
