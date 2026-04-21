@@ -1,0 +1,242 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    okj-app: okj-monitor-alert-webhook
+  name: alert-webhook-card
+  namespace: okj-monitor
+data:
+  alert-card.json: |
+    {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "template": "${color}",
+        "title": {
+          "tag": "plain_text",
+          "content": "${title}! ${alertName}"
+        }
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "lark_md",
+                "content": "** source：**\n${source}"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "lark_md",
+                "content": "** start time：**\n${startTime}"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "lark_md",
+                "content": "** people in charge：**\n${mentionList}"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "lark_md",
+                "content": "** content：**\n${content}"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Confirm Url"
+              },
+              "url": "${confirmUrl}",
+              "type": "primary"
+            },
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Silence Temporarily"
+              },
+              "url": "${tempSilenceUrl}"
+            }
+          ]
+        }
+      ]
+    }
+---
+apiVersion: vpcresources.k8s.aws/v1beta1
+kind: SecurityGroupPolicy
+metadata:
+  labels:
+    okj-app: okj-monitor-alert-webhook
+  name: okj-monitor-alert-webhook-group-policy
+  namespace: okj-monitor
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: okj-monitor-alert-webhook
+  securityGroups:
+    groupIds: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/managed-by: cdk8s
+    app.kubernetes.io/name: okj-monitor-alert-webhook
+    okj-app: okj-monitor-alert-webhook
+  name: okj-monitor-alert-webhook
+  namespace: okj-monitor
+spec:
+  minReadySeconds: 0
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: monitoring
+      app.kubernetes.io/name: okj-monitor-alert-webhook
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: monitoring
+        app.kubernetes.io/name: okj-monitor-alert-webhook
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          image: 097102939699.dkr.ecr.ap-northeast-1.amazonaws.com/test/okj-monitor-alert-webhook:latest
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 0
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 3
+          name: okj-monitor-alert-webhook
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 0
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: "0.5"
+              memory: 2048Mi
+            requests:
+              cpu: "0.5"
+              memory: 2048Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp
+              readOnly: false
+            - mountPath: /data/okcoin/conf/config.yaml
+              name: alert-webhook-config
+              readOnly: true
+              subPath: config.yaml
+            - mountPath: /data/okcoin/conf/alert-card.json
+              name: alert-webhook-card
+              readOnly: true
+              subPath: alert-card.json
+      dnsPolicy: ClusterFirst
+      hostNetwork: false
+      nodeSelector:
+        kubernetes.io/os: linux
+        okj.com/node-group-role: monitor-egress
+      restartPolicy: Always
+      securityContext:
+        fsGroupChangePolicy: Always
+        runAsNonRoot: true
+      setHostnameAsFQDN: false
+      shareProcessNamespace: false
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - effect: NoSchedule
+          key: okj.com/monitor-access
+          operator: Equal
+          value: "true"
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: okj-monitor-alert-webhook
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: okj-monitor-alert-webhook
+          maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+      volumes:
+        - emptyDir: {}
+          name: tmp
+        - configMap:
+            name: alert-webhook-config
+          name: alert-webhook-config
+        - configMap:
+            name: alert-webhook-card
+          name: alert-webhook-card
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/managed-by: cdk8s
+    app.kubernetes.io/name: okj-monitor-alert-webhook
+    okj-app: okj-monitor-alert-webhook
+  name: okj-monitor-alert-webhook
+  namespace: okj-monitor
+spec:
+  clusterIP: None
+  externalIPs: []
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/name: okj-monitor-alert-webhook
+  type: ClusterIP
