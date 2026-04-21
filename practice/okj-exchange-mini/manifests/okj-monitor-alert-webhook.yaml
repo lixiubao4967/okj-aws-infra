@@ -77,20 +77,6 @@ data:
       ]
     }
 ---
-apiVersion: vpcresources.k8s.aws/v1beta1
-kind: SecurityGroupPolicy
-metadata:
-  labels:
-    okj-app: okj-monitor-alert-webhook
-  name: okj-monitor-alert-webhook-group-policy
-  namespace: okj-monitor
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: okj-monitor-alert-webhook
-  securityGroups:
-    groupIds: []
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
