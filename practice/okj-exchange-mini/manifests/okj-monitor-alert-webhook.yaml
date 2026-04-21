@@ -157,11 +157,11 @@ spec:
             - mountPath: /tmp
               name: tmp
               readOnly: false
-            - mountPath: /data/okcoin/conf/config.yaml
+            - mountPath: /conf/config.yaml
               name: alert-webhook-config
               readOnly: true
               subPath: config.yaml
-            - mountPath: /data/okcoin/conf/alert-card.json
+            - mountPath: /conf/alert-card.json
               name: alert-webhook-card
               readOnly: true
               subPath: alert-card.json
