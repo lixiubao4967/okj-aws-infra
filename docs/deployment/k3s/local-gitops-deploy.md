@@ -166,36 +166,196 @@ okj-uno                 Active   7m
 
 ---
 
-## 已知问题与待办
+## 部署 okj-monitor-alert-webhook 实际遇到的问题
 
-### 问题一：ECR 镜像认证（待解决）
+以下问题按排查顺序记录，每个问题均已解决。
 
-所有业务服务镜像均在 `097102939699.dkr.ecr.ap-northeast-1.amazonaws.com`，
-k3s 节点拉取前需要认证。解决方案待配置后补充。
+### 问题一：ECR 镜像认证 ✅
 
-### 问题二：NodeSelector 不匹配
+**现象：** Pod 无法拉取镜像。
 
-服务代码中有 AWS 专用节点选择器（如 `MonitorEgressNodeSelector()`），
-k3s 节点没有对应 label，Pod 会无法调度（Pending）。
-
-解决方法：给 k3s 节点打上对应 label：
+**解决：** 在目标 namespace 创建 imagePullSecret，并 patch ServiceAccount：
 
 ```bash
-kubectl label node k3s-server okj.com/node-group-role=<role-name>
+# 创建 Secret（ECR Token 12小时过期，需定期刷新）
+kubectl create secret docker-registry ecr-pull-secret \
+  --docker-server=097102939699.dkr.ecr.ap-northeast-1.amazonaws.com \
+  --docker-username=AWS \
+  --docker-password=$(aws ecr get-login-password --region ap-northeast-1) \
+  --namespace=okj-monitor
+
+# 让该 namespace 下所有 Pod 自动使用此 Secret
+kubectl patch serviceaccount default \
+  -n okj-monitor \
+  -p '{"imagePullSecrets": [{"name": "ecr-pull-secret"}]}'
 ```
 
-具体 role 值需查各服务的 Go 源码。
+**注意：** ECR Token 有效期 12 小时，长期使用需部署自动刷新 CronJob。
 
-### 问题三：ConfigMap overlay 缺失
+---
 
-部分服务（如 `okj-monitor-alert-webhook`）依赖 overlay 里的 `config.yaml` ConfigMap，
-CDK8s 只生成通用部分，环境特定配置在 `okj-argo-manifests/overlays/` 中管理。
-直接 apply CDK8s 生成的 YAML 时这部分 ConfigMap 不存在。
+### 问题二：SecurityGroupPolicy CRD 不存在 ✅
+
+**现象：** ArgoCD sync 失败，报错：
+
+```
+The Kubernetes API could not find vpcresources.k8s.aws/SecurityGroupPolicy
+```
+
+**原因：** CDK8s 自动为每个服务生成 `SecurityGroupPolicy`（AWS VPC Resource Controller 专属 CRD），
+用于给 Pod 分配 AWS 安全组。k3s 上没有安装此 CRD。
+
+**解决：** 在 `okj-aws-infra` 的副本 YAML 里删除 SecurityGroupPolicy 段（约 13 行）。
+不要修改 `okj-charts/` 里的原始生成文件。
+
+---
+
+### 问题三：内存资源超出节点上限 ✅
+
+**现象：** Pod 长期 `Pending`，describe 显示：
+
+```
+0/1 nodes are available: 1 Insufficient memory.
+```
+
+**原因：** 生产配置为 500m CPU / 2Gi 内存（遵循 1:4 比例规范），
+但 k3s 本地 VM 总内存约 2Gi，已分配 460Mi，不够再分配 2048Mi。
+
+**解决：** 在副本 YAML 里降低资源配置：
+
+```yaml
+resources:
+  limits:
+    cpu: "0.5"
+    memory: 256Mi
+  requests:
+    cpu: "100m"
+    memory: 128Mi
+```
+
+---
+
+### 问题四：NodeSelector 不匹配 ✅
+
+**现象：** Pod 无法调度（Pending），describe 显示 NodeSelector 不匹配。
+
+**原因：** CDK8s 生成的 Deployment 包含 `okj.com/node-group-role: monitor-egress`，
+k3s 节点没有此 label。
+
+**解决：**
+
+```bash
+kubectl label node k3s-server okj.com/node-group-role=monitor-egress
+```
+
+---
+
+### 问题五：runAsNonRoot 与镜像冲突 ✅
+
+**现象：** `CreateContainerConfigError`，describe 显示：
+
+```
+container has runAsNonRoot and image will run as root
+```
+
+**原因：** CDK8s 生成的 securityContext 要求 `runAsNonRoot: true`，
+但 test 镜像的 Dockerfile 没有 `USER` 指令，默认以 root 启动。
+
+**解决（本地测试）：** 在副本 YAML 里将两处 `runAsNonRoot: true` 改为 `false`：
+- `spec.template.spec.securityContext.runAsNonRoot`
+- `spec.template.spec.containers[].securityContext.runAsNonRoot`
+
+**根本解法：** 在服务 Dockerfile 里加 `USER nonroot`。
+
+---
+
+### 问题六：config 文件挂载路径错误 ✅
+
+**现象：** CrashLoopBackOff，容器日志：
+
+```
+open ./conf/config.yaml: no such file or directory
+```
+
+**原因：** CDK8s 将 ConfigMap 挂载到 `/data/okcoin/conf/config.yaml`，
+但容器镜像的 WORKDIR 是 `/`，应用实际查找的路径是 `/conf/config.yaml`。
+
+**排查方法：** 用调试 Pod 覆盖 ENTRYPOINT 检查工作目录：
+
+```bash
+kubectl run debug-webhook -n okj-monitor \
+  --image=<ecr-image> \
+  --restart=Never \
+  --command \
+  --overrides='{"spec":{"imagePullSecrets":[{"name":"ecr-pull-secret"}],"securityContext":{"runAsNonRoot":false}}}' \
+  -- sh -c "pwd && ls -la && sleep 60"
+# 输出：WORKDIR = /
+```
+
+**解决：** 修改副本 YAML 的 volumeMounts：
+
+```yaml
+# 修改前（CDK8s 生成）
+mountPath: /data/okcoin/conf/config.yaml
+
+# 修改后（k3s 本地测试）
+mountPath: /conf/config.yaml
+```
+
+同理修改 `alert-card.json` 的挂载路径。
+
+---
+
+### 问题七：alert-webhook-config ConfigMap 缺失 ✅
+
+**原因：** CDK8s 只生成 `alert-webhook-card`（通用 Lark 模板），
+`alert-webhook-config`（含 `config.yaml`）是环境特定配置，
+在生产环境由 `okj-argo-manifests/overlays/` 提供。
+
+**解决：** 手动创建占位 ConfigMap：
+
+```bash
+kubectl create configmap alert-webhook-config \
+  --from-literal=config.yaml="server:
+  port: 8080
+" \
+  -n okj-monitor
+```
+
+---
+
+## 最终结果
+
+`okj-monitor-alert-webhook` 成功运行，Pod 日志：
+
+```
+Route registered: POST /alert → alertmanager-lark-intergration/handler.HandleAlert
+Route registered: POST /proxy/alerts → alertmanager-lark-intergration/handler.ProxyAlert
+[GIN-debug] POST   /alert      --> handler.HandleAlert (3 handlers)
+[GIN-debug] POST   /proxy/alerts --> handler.ProxyAlert (3 handlers)
+```
+
+k3s 节点架构（arm64）与 ECR 镜像兼容，镜像为多架构构建。
+
+---
+
+## k3s 本地部署与生产 EKS 的差异对照
+
+| 配置项 | 生产 EKS | k3s 本地 |
+| --- | --- | --- |
+| 镜像认证 | IRSA / 节点 IAM Role | imagePullSecret（手动刷新） |
+| SecurityGroupPolicy | 自动分配 AWS SG | 删除（不适用） |
+| 资源配置 | 500m CPU / 2Gi Mem | 100m CPU / 128Mi Mem |
+| NodeSelector | AWS 节点组 label | 手动给 k3s-server 打 label |
+| runAsNonRoot | 强制开启 | 关闭（镜像未配置非 root 用户） |
+| config 挂载路径 | `/data/okcoin/conf/` | `/conf/`（WORKDIR 不同） |
+| ConfigMap 来源 | ArgoCD overlay 自动创建 | 手动创建占位 ConfigMap |
 
 ---
 
 ## 下一步
 
-- [ ] 配置 k3s ECR 镜像认证（imagePullSecret 或 registries.yaml）
-- [ ] 部署一个带镜像的服务（计划：`okj-monitor-alert-webhook`）
-- [ ] 补充 ECR 认证配置步骤到本文档
+- [ ] 验证 readiness probe 是否通过（READY 1/1）
+- [ ] 部署自动刷新 ECR Token 的 CronJob（12 小时 Token 过期问题）
+- [ ] 调查 `runAsNonRoot` 根本解法（Dockerfile 加 USER 指令）
+- [ ] 创建 overlay 结构统一管理 k3s 环境差异（避免每次手改副本 YAML）
