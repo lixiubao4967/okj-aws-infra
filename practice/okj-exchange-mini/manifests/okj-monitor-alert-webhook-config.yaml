@@ -10,10 +10,10 @@ data:
     lark:
       apps:
         firing:
-          appId: "test-app-id"
-          appSecret: "test-app-secret"
+          appid: "test-app-id"
+          appsecret: "test-app-secret"
           chatId: "test-chat-id"
         resolved:
-          appId: "test-app-id"
-          appSecret: "test-app-secret"
+          appid: "test-app-id"
+          appsecret: "test-app-secret"
           chatId: "test-chat-id"
