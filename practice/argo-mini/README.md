@@ -127,6 +127,7 @@ kubectl annotate application argo-mini-dev-nginx \
 | redis pod `CreateContainerConfigError: runAsNonRoot` | base/redis.yaml 缺少 `runAsUser: 999` | container securityContext 加 `runAsUser: 999` |
 | selfHeal 无 Event 记录 | ArgoCD 静默修复漂移，不写 Event | 用 `kubectl get deployment nginx -o jsonpath='{.spec.replicas}'` 验证 |
 | push 后长时间未自动同步 | application-controller 重启后轮询队列未恢复，且 git 缓存未失效 | 1. 设置 `timeout.reconciliation: 180s` 并重启 controller；2. 用 `refresh=hard` 跳过缓存 |
+| 忘记 admin 密码 | 初始密码存在 Secret 中 | `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" \| base64 -d && echo` |
 
 ## 练习任务
 
