@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-webhook-config
+  namespace: okj-monitor
+data:
+  config.yaml: |
+    server:
+      port: 8080
+    lark:
+      apps:
+        firing:
+          appId: "test-app-id"
+          appSecret: "test-app-secret"
+          chatId: "test-chat-id"
+        resolved:
+          appId: "test-app-id"
+          appSecret: "test-app-secret"
+          chatId: "test-chat-id"
