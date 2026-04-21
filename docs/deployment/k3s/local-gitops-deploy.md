@@ -326,16 +326,34 @@ kubectl create configmap alert-webhook-config \
 
 ## 最终结果
 
-`okj-monitor-alert-webhook` 成功运行，Pod 日志：
+### 已验证 ✅
 
+| 环节 | 结果 |
+| --- | --- |
+| CDK8s `make synth` | 成功生成 100+ 服务 YAML |
+| GitOps push → ArgoCD sync | 正常工作，资源自动创建 |
+| ECR 镜像拉取（imagePullSecret） | 成功，arm64 镜像兼容 |
+| Namespace / PriorityClass 创建 | 成功 |
+| Pod 调度（NodeSelector / 资源） | 成功 |
+| 容器启动 + GIN 路由注册 | 成功，app 能正常启动 |
+| ConfigMap 通过 GitOps 管理 | 成功（argocd tracking-id 正确） |
+
+Pod 启动后日志：
 ```
 Route registered: POST /alert → alertmanager-lark-intergration/handler.HandleAlert
 Route registered: POST /proxy/alerts → alertmanager-lark-intergration/handler.ProxyAlert
 [GIN-debug] POST   /alert      --> handler.HandleAlert (3 handlers)
 [GIN-debug] POST   /proxy/alerts --> handler.ProxyAlert (3 handlers)
+port
 ```
 
-k3s 节点架构（arm64）与 ECR 镜像兼容，镜像为多架构构建。
+### 未解决 ❌
+
+App 在输出 `port` 后崩溃，原因未最终确认，可能是：
+- Liveness probe（initialDelaySeconds: 30）杀掉未完全启动的 Pod
+- App 启动后尝试连接 Lark API 验证 token，使用假凭据（test-app-id）失败
+
+**根本原因**：`okj-monitor-alert-webhook` 需要真实的 Lark Bot AppId/AppSecret 才能完整运行，本地测试环境无法提供。
 
 ---
 
