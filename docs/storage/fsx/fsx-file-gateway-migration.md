@@ -1,5 +1,39 @@
 # 从 Samba+LDAP 迁移到 FSx File Gateway 方案
 
+## 0. 方案选型：Google Drive vs FSx File Gateway
+
+> **调查结论待补充**：下表为备选方案对比，确认团队实际使用场景后决定方向。
+
+### 费用对比（10 人团队，10TB 存储，东京区）
+
+| 方案 | 月费（USD） | 适合场景 |
+|------|------------|---------|
+| **Google Workspace Business Standard** | ~$120 | 文档共享、浏览器/桌面客户端访问 |
+| FSx 方案（Simple AD） | ~$460 | SMB 网络驱动器、NTFS 权限、老旧 Windows 应用 |
+| FSx 方案（Managed AD） | ~$560 | 同上 + MFA、AD 信任关系 |
+
+Google Workspace Business Standard（$12/人/月）含 2TB/人的池化存储，10 人 = 20TB 共享池，覆盖 10TB 需求，无需 VPN、AD、EC2。
+
+### 关键差异
+
+| 维度 | Google Drive | FSx File Gateway |
+|------|-------------|-----------------|
+| 访问方式 | 浏览器 / 桌面客户端 | SMB 网络驱动器（`\\server\share`） |
+| 用户认证 | Google 账号 | Active Directory |
+| 文件权限 | 共享链接 + 权限设置 | NTFS ACL（细粒度） |
+| 离线访问 | 有（Drive for Desktop 同步） | 有（Gateway 本地缓存） |
+| 老旧 Windows 应用兼容 | ❌ 不支持 SMB | ✅ 完全兼容 |
+| 维护成本 | 极低（SaaS） | 高（AD + FSx + VPN） |
+
+### 决策依据（待调查）
+
+- [ ] 是否有 Windows 应用依赖 SMB 路径（ERP、CAD 等）
+- [ ] 现有工作流是否强依赖「映射网络驱动器」
+- [ ] 是否需要细粒度 NTFS 权限控制
+- [ ] 团队实际人数（影响 Google Workspace 费用）
+
+---
+
 ## 1. 现状与目标
 
 ### 现有架构
@@ -56,21 +90,45 @@ FSx 是 VPC 内部服务，没有公网端点，**必须建立网络通道**。
 
 ## 3. 各组件成本估算
 
-以 **Single-AZ、200GB SSD 存储、10 人团队**为例：
+以 **Single-AZ、10TB HDD 存储、小型团队（含管理跳板机）**为例（东京区）：
 
-| 组件 | 规格 | 月费用 (东京区) |
-|------|------|----------------|
-| AWS Managed Microsoft AD | Standard (2 DC) | ~$175 |
-| FSx for Windows File Server | Single-AZ, 200GB SSD, 32MB/s | ~$30 |
+| 组件 | 规格 | 月费用 |
+|------|------|--------|
+| AWS Managed Microsoft AD | Standard（含 2 台 DC） | ~$175 |
+| FSx for Windows File Server | Single-AZ, 10TB HDD, 32MB/s | ~$326 |
 | Site-to-Site VPN | 1 条连接 | ~$37 |
-| FSx File Gateway (本地) | 办公室已有服务器上的 VM | $0 (用现有硬件) |
-| 数据传出 | 按实际用量 | ~$10–50 |
-| **合计** | | **~$252–302/月** |
+| Windows EC2（管理跳板机） | t3.small，常驻 | ~$17 |
+| FSx File Gateway (本地) | 办公室已有服务器上的 VM | $0（用现有硬件） |
+| 数据传出 | 估算 50GB/月 | ~$5 |
+| **合计** | | **~$560/月** |
 
-> **注意**：AD 是最大开销。如想降低成本，可用 **Simple AD**（~$73/月）替代，
-> 但会失去 MFA、细粒度密码策略等功能。对于文件共享场景 Simple AD 通常够用。
+### FSx 存储费用拆解
+
+```
+10TB HDD 存储：10,240 GB × $0.025/GB = $256/月
+32 MB/s 吞吐：  32 MB/s × $2.20/MB/s =  $70/月
+                                         ─────────
+                                         ~$326/月
+```
+
+> **为什么选 HDD 而非 SSD？**
+> 10TB SSD 存储约 $2,355/月（$0.23/GB），是 HDD 的 9 倍。
+> 文件共享场景（文档、图片）不需要 SSD 的随机 IOPS，HDD 延迟完全够用。
+
+### 降低成本的选项
+
+| 优化项 | 可节省 | 说明 |
+|--------|--------|------|
+| 改用 Simple AD | -$102/月 | 文件共享场景功能够用，不支持 MFA 和信任关系 |
+| 管理 EC2 按需启停 | -$13/月 | 非维护期 Stop，只在需要操作 AD/FSx 时启动 |
+| 按需购买存储（先 5TB） | -$128/月 | FSx 存储可在线扩容，不影响业务 |
+
+三项全做，月费可压至 **~$317/月**。
+
+> **备份费用注意**：FSx 自动备份默认开启，备份存储按 $0.05/GB-month 计费。
+> 4.5TB 数据首次全备约 +$230，之后为增量。实验/测试阶段建议关闭自动备份。
 >
-> 使用 Simple AD 的总费用约 **~$150–200/月**。
+> 使用 Simple AD 替代 Managed AD 的总费用约 **~$460/月**。
 
 ## 4. 实施步骤
 
