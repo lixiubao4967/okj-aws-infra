@@ -214,6 +214,60 @@ CDK 会交互式询问每个资源的物理 ID，填入对应的完整 ARN。sta
 
 ---
 
+### 坑 3：EKS AccessEntry 与 Cluster 并行创建导致 404
+
+**Stack**：`okj-exchange-eks-stage`
+
+**现象**：stack 创建时 `AWS::EKS::AccessEntry` 报错：
+
+```
+No cluster found for name: okj-exchange-stage.
+(Service: Eks, Status Code: 404)
+```
+
+stack 回滚进入 `ROLLBACK_COMPLETE`。
+
+**根本原因**：
+
+`createNodeAccessEntry` 函数中 `ClusterName` 使用了硬编码字符串：
+
+```go
+// 错误写法：硬编码字符串，CloudFormation 不知道依赖关系
+ClusterName: jsii.String(clusterName),
+```
+
+CloudFormation 无法从字面字符串推导出 `AccessEntry` 依赖 `Cluster`，于是并行创建两者，`AccessEntry` 先到时集群还不存在，报 404。
+
+**修复**（`internal/stacks/infra/k8s/eks_nodegroups.go`）：
+
+```go
+// 正确写法：使用 s.cluster.Ref()，CDK 生成 {"Ref": "eks-cluster"}
+// CloudFormation 识别 Ref 依赖，自动等集群创建完再执行 AccessEntry
+ClusterName: s.cluster.Ref(),
+```
+
+`Ref()` 返回的是 CloudFormation intrinsic function `{ "Ref": "eks-cluster" }`，等价于集群名称，但同时建立了隐式依赖关系。
+
+**处理步骤**：
+
+1. 修复代码（如上）
+2. 删除 ROLLBACK_COMPLETE 的 stack：
+
+```bash
+aws cloudformation delete-stack --stack-name okj-exchange-eks-stage
+aws cloudformation wait stack-delete-complete --stack-name okj-exchange-eks-stage
+```
+
+3. 重新部署（约 13 分钟）：
+
+```bash
+cdk deploy okj-exchange-eks-stage --context env=stage --require-approval never
+```
+
+**规律**：CDK 中凡是用字面字符串引用同 stack 内其他资源名称的地方，都应改为 `resource.Ref()` 或 `resource.AttrXxx()`，避免 CloudFormation 并行创建导致的隐式依赖缺失。
+
+---
+
 ## SSM Parameter Store 参数结构说明
 
 `okj-exchange-param-store-<env>` 每个应用服务创建三类参数：
