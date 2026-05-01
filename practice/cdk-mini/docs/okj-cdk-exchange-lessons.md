@@ -156,6 +156,64 @@ cdk deploy okj-exchange-param-store-stage --context env=stage --require-approval
 
 ---
 
+### 坑 2：Secrets Manager secret 已存在导致 secret-stack 部署失败
+
+**Stack**：`okj-exchange-secret-stack-stage`
+
+**现象**：`cdk deploy` 时所有 Secret 资源同时 `CREATE_FAILED`：
+
+```
+Resource handler returned message: "The operation failed because the secret
+okj-exchange-stage-uno-global already exists."
+HandlerErrorCode: AlreadyExists
+```
+
+stack 回滚后进入 `ROLLBACK_COMPLETE` 状态。
+
+**根本原因**：
+
+Secrets Manager 中已存在同名 secret（由之前手动创建或上一次部署残留），且内含真实密码数据，CloudFormation 无法覆盖创建。
+
+> **注意**：先用 `describe-secret` 确认 `DeletedDate` 字段：
+> - `DeletedDate` 有值 → secret 处于待删除保护期，强制删除后重建即可
+> - `DeletedDate` 为 null → secret **活跃且可能有真实数据**，必须走 import 路径，不能删除
+
+**解决步骤（secret 有真实数据的情况）**：
+
+1. **查出所有冲突 secret 的完整 ARN**（import 必须用 ARN，不能用名称）：
+
+```bash
+for secret in \
+  okj-exchange-stage-uno-global \
+  okj-exchange-stage-wallet-vault-common \
+  okj-exchange-stage-eks-cluster-secret \
+  okj-exchange-stage-global-db-root-secret; do
+  echo -n "$secret → "
+  aws secretsmanager describe-secret --secret-id $secret --query 'ARN' --output text
+done
+```
+
+2. **删除 ROLLBACK_COMPLETE 的空 stack**：
+
+```bash
+aws cloudformation delete-stack --stack-name okj-exchange-secret-stack-stage
+aws cloudformation wait stack-delete-complete --stack-name okj-exchange-secret-stack-stage
+```
+
+3. **用 `cdk import` 将现有 secret 纳入 CDK 管理**（不会修改 secret 的值）：
+
+```bash
+cdk import okj-exchange-secret-stack-stage --context env=stage
+```
+
+CDK 会交互式询问每个资源的物理 ID，填入对应的完整 ARN。stack 最终进入 `IMPORT_COMPLETE` 状态，后续 `cdk deploy` 按正常 update 处理。
+
+**ARN 格式**：`arn:aws:secretsmanager:<region>:<account>:secret:<name>-<suffix>`（注意末尾有 6 位随机后缀）。
+
+**规律**：新环境 secret-stack 部署前，先确认这 4 个 secret 是否已存在。若已存在且有真实数据，直接走 import 而非重建，避免数据丢失。
+
+---
+
 ## SSM Parameter Store 参数结构说明
 
 `okj-exchange-param-store-<env>` 每个应用服务创建三类参数：
