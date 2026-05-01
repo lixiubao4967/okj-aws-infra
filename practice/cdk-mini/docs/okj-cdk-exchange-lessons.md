@@ -67,13 +67,13 @@ Layer 6:          └── 所有业务服务 stacks  ←── eks + 以上所
 | | `ecr-stack-stage` | ✅ | — |
 | | `dynamodb-stack-stage` | ✅ | — |
 | | `image-recipe-stack` | ✅ 共用 | — |
-| | `s3-stack-stage` | ❌ | `cdk deploy okj-exchange-s3-stack-stage` |
-| | `secret-stack-stage` | ❌ | `cdk deploy okj-exchange-secret-stack-stage` |
-| **Layer 3** | `iam-stack-stage` | ❌ | `cdk deploy okj-exchange-iam-stack-stage` |
-| **Layer 4** | `aurora-stack-stage` | ❌ | `cdk deploy okj-exchange-aurora-stack-stage` |
-| | `msk-stack-stage` | ❌ | `cdk deploy okj-exchange-msk-stack-stage` |
-| | `cache-stack-stage` | ❌ | `cdk deploy okj-exchange-cache-stack-stage` |
-| | `eks-stage` | ❌ | `cdk deploy okj-exchange-eks-stage` |
+| | `s3-stack-stage` | ✅ 2026-05-01 | — |
+| | `secret-stack-stage` | ✅ 2026-05-01（cdk import）| — |
+| **Layer 3** | `iam-stack-stage` | ✅ 2026-05-01 | — |
+| **Layer 4** | `aurora-stack-stage` | ✅ 2026-05-01 | — |
+| | `msk-stack-stage` | ✅ 2026-05-01 | — |
+| | `cache-stack-stage` | ✅ 2026-05-01 | — |
+| | `eks-stage` | ✅ 2026-05-01（代码修复后重建）| — |
 | **Layer 5** | `base-image-stage` | ❌ | `cdk deploy okj-exchange-base-image-stage` |
 | | `base-container-image-stage` | ❌ | `cdk deploy okj-exchange-base-container-image-stage` |
 | **Layer 6** | 所有 `okj-*-stage` 服务 | ❌ | `cdk deploy --all --context env=stage` |
