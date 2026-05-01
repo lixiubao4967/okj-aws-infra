@@ -26,6 +26,85 @@ Stage 环境关键配置（`config/stage.yaml`）：
 
 ---
 
+## Stack 部署顺序（新环境）
+
+新环境首次完整部署需按层次推进，后一层依赖前一层的 CloudFormation 输出（跨 Stack Export/Import）。
+
+### 依赖关系图
+
+```
+Layer 1: subnet ──┬── security-groups
+                  └── provision-resources
+                            │
+Layer 2:          ├── param-store  (无依赖，可先行)
+                  ├── ecr-stack    (无依赖，可先行)
+                  ├── dynamodb     (无依赖，可先行)
+                  ├── image-recipe (无 env 后缀，全环境共用)
+                  ├── s3-stack ←── subnet (S3 VPC Endpoint)
+                  └── secret-stack (无依赖)
+                            │
+Layer 3:          └── iam-stack ←── s3 + secret + dynamodb
+                            │
+Layer 4:          ├── aurora-stack ←── provision + subnet + sg + secret
+                  ├── msk-stack    ←── provision + subnet + sg
+                  ├── cache-stack  ←── provision + subnet + sg
+                  └── eks          ←── subnet + sg
+                            │
+Layer 5:          ├── base-image           ←── aurora(SSM endpoint) + param-store + s3 + iam + secret + recipe
+                  └── base-container-image ←── ecr + subnet + sg + s3
+                            │
+Layer 6:          └── 所有业务服务 stacks  ←── eks + 以上所有
+```
+
+### Stage 部署进度表（2026-05-01）
+
+| 层次 | Stack | 状态 | 部署命令 |
+|------|-------|------|---------|
+| **Layer 1** | `subnet-stage` | ✅ | — |
+| | `security-groups-stage` | ✅ | — |
+| | `provision-resources-stage` | ✅ | — |
+| **Layer 2** | `param-store-stage` | ✅ | — |
+| | `ecr-stack-stage` | ✅ | — |
+| | `dynamodb-stack-stage` | ✅ | — |
+| | `image-recipe-stack` | ✅ 共用 | — |
+| | `s3-stack-stage` | ❌ | `cdk deploy okj-exchange-s3-stack-stage` |
+| | `secret-stack-stage` | ❌ | `cdk deploy okj-exchange-secret-stack-stage` |
+| **Layer 3** | `iam-stack-stage` | ❌ | `cdk deploy okj-exchange-iam-stack-stage` |
+| **Layer 4** | `aurora-stack-stage` | ❌ | `cdk deploy okj-exchange-aurora-stack-stage` |
+| | `msk-stack-stage` | ❌ | `cdk deploy okj-exchange-msk-stack-stage` |
+| | `cache-stack-stage` | ❌ | `cdk deploy okj-exchange-cache-stack-stage` |
+| | `eks-stage` | ❌ | `cdk deploy okj-exchange-eks-stage` |
+| **Layer 5** | `base-image-stage` | ❌ | `cdk deploy okj-exchange-base-image-stage` |
+| | `base-container-image-stage` | ❌ | `cdk deploy okj-exchange-base-container-image-stage` |
+| **Layer 6** | 所有 `okj-*-stage` 服务 | ❌ | `cdk deploy --all --context env=stage` |
+
+### 分层部署命令（按顺序执行）
+
+```bash
+# 公共参数
+CTX="--context env=stage --require-approval never"
+
+# Layer 2（剩余，可并行）
+cdk deploy okj-exchange-s3-stack-stage okj-exchange-secret-stack-stage $CTX
+
+# Layer 3
+cdk deploy okj-exchange-iam-stack-stage $CTX
+
+# Layer 4（可并行）
+cdk deploy okj-exchange-aurora-stack-stage okj-exchange-msk-stack-stage \
+  okj-exchange-cache-stack-stage okj-exchange-eks-stage $CTX
+
+# Layer 5（可并行）
+cdk deploy okj-exchange-base-image-stage okj-exchange-base-container-image-stage $CTX
+
+# Layer 6（全量，CDK 自动处理服务间顺序）
+cdk deploy --all $CTX
+```
+
+> **注意**：同一条 `cdk deploy` 中列多个 stack，CDK 会并行部署它们，但不会检查 stack 之间的依赖顺序。必须确保上一层全部 `CREATE/UPDATE_COMPLETE` 再执行下一层命令。
+
+---
+
 ## 踩坑记录
 
 ### 坑 1：SSM Parameter Store 大量并发创建导致部署失败
