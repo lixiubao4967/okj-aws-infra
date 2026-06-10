@@ -74,9 +74,15 @@ Layer 6:          └── 所有业务服务 stacks  ←── eks + 以上所
 | | `msk-stack-stage` | ✅ 2026-05-01 | — |
 | | `cache-stack-stage` | ✅ 2026-05-01 | — |
 | | `eks-stage` | ✅ 2026-05-01（代码修复后重建）| — |
-| **Layer 5** | `base-image-stage` | ❌ | `cdk deploy okj-exchange-base-image-stage` |
-| | `base-container-image-stage` | ❌ | `cdk deploy okj-exchange-base-container-image-stage` |
-| **Layer 6** | 所有 `okj-*-stage` 服务 | ❌ | `cdk deploy --all --context env=stage` |
+| **Layer 5** | `base-image-stage` | ✅ | — |
+| | `base-container-image-stage` | ✅ | — |
+| **Layer 6** | 所有 `okj-*-stage` 服务 | ✅ 2026-06-10 全量完成（128/128）| — |
+
+> **进度更新（2026-06-10）**：`cdk deploy --all` 全量跑通，128 个 stack 全部 ✅。过程中踩了坑 4（S3/ECR 空孤儿资源）与坑 5（ECR 仓库双重定义），均已解决并记录在下方。
+>
+> **概念备忘**：`base-image` 造 AMI（EC2/executor 用），`base-container-image` 造容器基础镜像（推 ECR，EKS Pod `FROM`）。`cdk deploy` 只建 Image Builder 流水线，**不产镜像**；流水线还需触发执行才会烤出镜像并更新 param-store 的 `pipeline-ami-id`。
+>
+> **后续待办**：触发 Image Builder 流水线产出 AMI / 容器镜像；CI 首次构建各服务镜像推入对应 ECR 仓库（当前服务仓库均为空）。
 
 ### 分层部署命令（按顺序执行）
 
@@ -268,7 +274,63 @@ cdk deploy okj-exchange-eks-stage --context env=stage --require-approval never
 
 ---
 
-## SSM Parameter Store 参数结构说明
+### 坑 4：S3 bucket / ECR 仓库空孤儿导致 `already exists`（2026-06-10）
+
+**Stack**：`okj-uno-api-stage`（S3）、`okj-log-clickhouse-stage` 等 10 个服务栈（ECR）
+
+**现象**：change set 早期校验失败：
+
+```
+Resource of type 'AWS::S3::Bucket' with identifier 'okj-uno-api-bucket-stage' already exists.
+Resource of type 'AWS::ECR::Repository' with identifier 'stage/okj-log-clickhouse' already exists.
+```
+
+新栈卡在 `REVIEW_IN_PROGRESS`（空壳）。
+
+**根本原因**：之前某次部署（04-24 / 06-02）创建过这些资源后栈被删除，资源因 `RETAIN` 策略（或 ECR 非空保护习惯）被保留，成为不归任何 CFN 栈管理的「孤儿」。重新部署时 CFN 不会接管同名资源，直接报错。
+
+**诊断流程（先查归属，再决定删还是 import）**：
+
+```bash
+# 1. 栈是否空壳
+aws cloudformation describe-stacks --stack-name <stack> --query "Stacks[0].StackStatus"
+# REVIEW_IN_PROGRESS = 空壳，可直接删
+
+# 2. 资源里有没有真实数据
+aws s3api list-objects-v2 --bucket <bucket> --max-items 5 --query "Contents[].Key"   # null = 空
+aws ecr list-images --repository-name <repo> --query "length(imageIds)"             # 0 = 空
+
+# 3. 摸清同批残留的全部范围（按创建日期聚类，一次性批量处理）
+aws s3api list-buckets --query "Buckets[?ends_with(Name, '-bucket-stage')].[Name,CreationDate]"
+aws ecr describe-repositories --query "sort_by(repositories[?starts_with(repositoryName, 'stage/')], &createdAt)[].[repositoryName,createdAt]"
+```
+
+**处理**：
+- **空资源** → 删空壳栈 + 删资源（`aws s3 rb`；`aws ecr delete-repository` **不带 `--force`**，非空会自动拒删，是第二道保险）→ 重新 deploy。
+- **有数据** → 走 `cdk import`（同坑 2 secret 思路），不要删。
+
+**判孤儿三条件须同时成立**：① 不在 ecr-stack 等合法栈的输出名单里；② 对应服务栈未 `CREATE_COMPLETE`；③ 资源为空。**仅凭创建日期会误判**——同日期也可能是 ecr-stack 合法追加的仓库。
+
+**规律**：新环境重跑曾部分失败的 `--all` 时，`already exists` 会连环出现。先按日期聚类圈出整批孤儿一次性清理，不要逐个打地鼠。「为什么仓库是空的」：CDK 只造货架不放货，镜像由 CI / Image Builder 流水线另行推入，新环境从未跑过构建所以全空。
+
+---
+
+### 坑 5：ECR 仓库所有权迁移漏改服务栈，双重定义冲突（2026-06-10）
+
+**Stack**：`okj-monitor-alert-webhook-stage`
+
+**现象**：与坑 4 相同的 `already exists`，但资源 `stage/okj-monitor-alert-webhook` **归 ecr-stack 的 CFN 管理**（`describe-stack-resources` 可查到 `CREATE_COMPLETE`），不是孤儿——**绝不能删**，删了 ecr-stack 会 drift。
+
+**根本原因**：代码把该仓库所有权从服务栈迁到 ecr-stack（`ecr_stack.go` 新增 `MonitorAlertWebhookRepo`，`base_container_image_stack.go` 改为引用它），但服务栈侧没有退出机制——`EKSServiceBuilder` 给每个服务默认 `CreateECRRepository=true`，于是 ecr-stack 与服务栈两边都声明同名仓库。
+
+**修复**（三处，沿用 `S3BucketProvider` 可选接口惯例）：
+- `services/structs.go`：新增 `ExternalECRRepositoryProvider` 可选接口（`UsesExternalECRRepository() bool`）。
+- `services/builder.go`：组装时类型断言，命中则 `Identity.CreateECRRepository = jsii.Bool(false)`。
+- `services/middleware/okj_monitor_alert_webhook.go`：实现该接口返回 `true`。
+
+验证：`cdk synth okj-exchange-okj-monitor-alert-webhook-stage | grep "AWS::ECR::Repository"` 应无输出。
+
+**规律**：同样的 `already exists` 报错，根因可能完全不同——**先用 `describe-stack-resources` 查资源归属**：无主空孤儿→删；有主（别的栈合法持有）→改代码消除重复定义。跨栈迁移资源所有权时，必须同时处理「新主建」与「旧主退出」两端。
 
 `okj-exchange-param-store-<env>` 每个应用服务创建三类参数：
 
