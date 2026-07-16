@@ -22,6 +22,7 @@ okj-argo-manifests    → 存储 YAML + 驱动 ArgoCD 同步到集群
 |------|------|
 | [项目架构详解](./project-architecture.md) | base/overlay 结构、ApplicationSet 自动发现、完整部署流 |
 | [操作手册](./operations.md) | 添加新服务、更新镜像、常用命令 |
+| [Stage 业务服务上线](./stage-service-bringup.md) | EC2→EKS 迁移原理、启动依赖链、SG/Apollo/Nacos 排查实录与 runbook |
 
 ## 30 秒快速理解
 
