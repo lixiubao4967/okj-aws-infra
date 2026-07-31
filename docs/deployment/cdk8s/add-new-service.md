@@ -6,6 +6,9 @@
 - **场景 B**：添加需要定制配置的服务（不同资源/节点组/ingress）
 - **场景 C**：添加 UNO gRPC 执行器服务
 
+> 本篇只讲本仓库内部怎么写。一个服务上线要动四个仓库（cdk / cdk8s / argo-manifests / uno），
+> 跨仓库的顺序、依赖和验证见 [EKS 新服务上线全流程](../new-service-onboarding.md)。
+
 ---
 
 ## 前置理解：两步走

@@ -20,6 +20,7 @@ scripts/
 
 ## 快速导航
 
+- [EKS 新服务上线全流程](docs/deployment/new-service-onboarding.md)（四仓库协作原理 + Runbook，跨仓库端到端）
 - [EC2 操作文档](docs/compute/ec2/)
 - [VPC 配置](docs/networking/vpc/)
 - [IAM 权限管理](docs/security/iam/)

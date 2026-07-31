@@ -5,6 +5,9 @@
 - **示例 A**：添加中间件类资源（以 SNS Topic 为例）
 - **示例 B**：添加 EKS 应用服务（以新 API 服务为例）
 
+> 本篇只讲本仓库内部怎么写。EKS 服务上线还要动 cdk8s / argo-manifests / uno 三个仓库，
+> 跨仓库的顺序、依赖和验证见 [EKS 新服务上线全流程](../new-service-onboarding.md)。
+
 ---
 
 ## 前置知识
