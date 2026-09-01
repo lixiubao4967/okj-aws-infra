@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `docs/compute/ec2/` — EC2 操作（克隆实例等）
   - `docs/deployment/` — 部署相关（ArgoCD / CDK / CDK8s / ops-kit）
   - `docs/storage/fsx/` — FSx 文件服务器迁移方案（Samba+LDAP → FSx File Gateway）
+  - `docs/database/aurora-postgresql/` — Aurora PostgreSQL 运维（蓝绿部署大版本升级）
 - `scripts/aws-cli/` — 可直接执行的 AWS CLI Shell 脚本
 
 ## 文档规范
